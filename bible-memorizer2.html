@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scripture Memorizer</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Crimson+Pro:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #c9a84c;
+    --gold-light: #e8c97a;
+    --gold-dim: rgba(201,168,76,0.15);
+    --parchment: #f5ead8;
+    --ink: #1c1208;
+    --ink-mid: #3d2b0e;
+    --ink-light: #7a5c2e;
+    --cream: #fdf6e3;
+    --accent: #8b1a1a;
+    --accent-light: #c0392b;
+    --green: #1a5c2e;
+    --green-light: #2ecc71;
+    --surface: rgba(255,250,235,0.6);
+    --surface-2: rgba(255,248,220,0.4);
+    --border: rgba(201,168,76,0.25);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Crimson Pro', Georgia, serif;
+    background: #1c1208;
+    min-height: 100vh;
+    color: var(--parchment);
+    overflow-x: hidden;
+  }
+
+  /* Textured background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 20% 20%, rgba(201,168,76,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 80%, rgba(139,26,26,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 50% 50%, rgba(60,40,10,0.6) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Grain overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  .app { position: relative; z-index: 1; }
+
+  /* ── Header ── */
+  header {
+    text-align: center;
+    padding: 52px 24px 32px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+
+  header::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  }
+
+  .header-ornament {
+    font-size: 1.4rem;
+    color: var(--gold);
+    letter-spacing: 8px;
+    opacity: 0.7;
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    color: var(--gold-light);
+    font-weight: 700;
+    letter-spacing: 1px;
+    line-height: 1.1;
+  }
+
+  .header-verse {
+    margin-top: 12px;
+    color: var(--ink-light);
+    font-style: italic;
+    font-size: 1rem;
+    color: rgba(201,168,76,0.55);
+  }
+
+  .sync-bar {
+    margin-top: 14px;
+    font-size: 0.82rem;
+    letter-spacing: 1px;
+    min-height: 20px;
+    transition: color 0.4s;
+  }
+
+  .sync-bar.syncing { color: var(--gold); }
+  .sync-bar.synced { color: #4caf82; }
+  .sync-bar.error { color: #e74c3c; }
+
+  /* ── Setup Banner ── */
+  #setupBanner {
+    background: linear-gradient(135deg, rgba(139,26,26,0.3), rgba(60,10,10,0.3));
+    border: 1px solid rgba(139,26,26,0.5);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin: 24px auto;
+    max-width: 820px;
+    display: none;
+  }
+
+  #setupBanner h3 {
+    font-family: 'Playfair Display', serif;
+    color: #e74c3c;
+    margin-bottom: 10px;
+    font-size: 1.2rem;
+  }
+
+  #setupBanner p { color: var(--parchment); font-size: 0.95rem; line-height: 1.7; }
+  #setupBanner code {
+    background: rgba(0,0,0,0.4);
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: var(--gold-light);
+    font-size: 0.88rem;
+  }
+
+  #setupBanner ol { padding-left: 20px; margin-top: 10px; }
+  #setupBanner li { margin-bottom: 6px; }
+
+  /* ── Nav Tabs ── */
+  nav {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    padding: 28px 16px 0;
+  }
+
+  .tab-btn {
+    position: relative;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--ink-light);
+    padding: 12px 28px;
+    font-family: 'Crimson Pro', serif;
+    font-size: 1rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .tab-btn:first-child { border-radius: 8px 0 0 8px; }
+  .tab-btn:last-child { border-radius: 0 8px 8px 0; }
+  .tab-btn + .tab-btn { border-left: none; }
+
+  .tab-btn.active {
+    background: var(--gold);
+    color: var(--ink);
+    border-color: var(--gold);
+    font-weight: 600;
+  }
+
+  .tab-btn:not(.active):hover {
+    background: var(--gold-dim);
+    color: var(--gold-light);
+  }
+
+  /* ── Main Container ── */
+  .container {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 32px 20px 80px;
+  }
+
+  .panel { display: none; animation: fadeIn 0.3s ease; }
+  .panel.active { display: block; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── Cards ── */
+  .card {
+    background: linear-gradient(145deg, rgba(45,28,8,0.95), rgba(35,20,5,0.98));
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px 32px;
+    margin-bottom: 22px;
+    backdrop-filter: blur(8px);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold-light), transparent);
+    opacity: 0.4;
+  }
+
+  .card-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.35rem;
+    color: var(--gold-light);
+    margin-bottom: 22px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── Form Elements ── */
+  .field { margin-bottom: 18px; }
+
+  label {
+    display: block;
+    color: var(--gold);
+    font-size: 0.78rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 7px;
+    font-weight: 600;
+  }
+
+  input[type="text"],
+  input[type="number"],
+  textarea,
+  select {
+    width: 100%;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(201,168,76,0.25);
+    border-radius: 8px;
+    padding: 11px 16px;
+    color: var(--parchment);
+    font-size: 1rem;
+    font-family: 'Crimson Pro', serif;
+    outline: none;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(201,168,76,0.1);
+  }
+
+  textarea { resize: vertical; min-height: 100px; line-height: 1.6; }
+
+  select option { background: #2a1a06; }
+
+  .row { display: flex; gap: 14px; }
+  .row .field { flex: 1; }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 11px 24px;
+    border-radius: 8px;
+    font-family: 'Crimson Pro', serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    border: none;
+    transition: all 0.25s;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--gold), #b8923c);
+    color: var(--ink);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(201,168,76,0.3);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--gold);
+    color: var(--gold);
+  }
+
+  .btn-ghost:hover { background: var(--gold-dim); }
+
+  .btn-danger {
+    background: transparent;
+    border: 1px solid rgba(139,26,26,0.6);
+    color: #c0392b;
+  }
+
+  .btn-danger:hover { background: rgba(139,26,26,0.2); }
+
+  .btn-sm { padding: 6px 14px; font-size: 0.85rem; }
+
+  .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+
+  /* ── Library ── */
+  .book-group { margin-bottom: 30px; }
+
+  .book-header {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.1rem;
+    color: var(--gold-light);
+    padding: 10px 0 10px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .book-count {
+    font-size: 0.78rem;
+    color: var(--ink-light);
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+  }
+
+  .verse-row {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(201,168,76,0.07);
+    transition: background 0.2s;
+  }
+
+  .verse-row:last-child { border-bottom: none; }
+
+  .verse-badge {
+    min-width: 34px;
+    height: 34px;
+    background: var(--gold-dim);
+    border: 1px solid rgba(201,168,76,0.3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--gold);
+    flex-shrink: 0;
+  }
+
+  .verse-body { flex: 1; line-height: 1.7; font-size: 1rem; }
+
+  .del-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: rgba(201,168,76,0.25);
+    font-size: 1rem;
+    padding: 4px 6px;
+    border-radius: 4px;
+    transition: color 0.2s;
+    flex-shrink: 0;
+  }
+
+  .del-btn:hover { color: #c0392b; }
+
+  /* ── Practice ── */
+  .prompt-card {
+    background: linear-gradient(135deg, rgba(201,168,76,0.06), rgba(201,168,76,0.02));
+    border: 1px solid rgba(201,168,76,0.3);
+    border-radius: 14px;
+    padding: 30px;
+    text-align: center;
+    margin-bottom: 22px;
+    position: relative;
+  }
+
+  .prompt-label {
+    font-size: 0.75rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--ink-light);
+    color: rgba(201,168,76,0.5);
+    margin-bottom: 14px;
+  }
+
+  .prompt-verse-num {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2.5rem, 6vw, 4rem);
+    color: var(--gold-light);
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+
+  .prompt-ref {
+    font-style: italic;
+    color: rgba(201,168,76,0.55);
+    font-size: 1rem;
+  }
+
+  /* Result boxes */
+  .result {
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-top: 18px;
+    font-size: 1rem;
+    line-height: 1.8;
+    display: none;
+  }
+
+  .result.show { display: block; animation: fadeIn 0.3s ease; }
+
+  .result.correct {
+    background: rgba(26,92,46,0.2);
+    border: 1px solid rgba(46,204,113,0.4);
+  }
+
+  .result.wrong {
+    background: rgba(139,26,26,0.15);
+    border: 1px solid rgba(192,57,43,0.4);
+  }
+
+  .result.reveal {
+    background: rgba(201,168,76,0.07);
+    border: 1px solid rgba(201,168,76,0.25);
+  }
+
+  .result-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .result.correct .result-title { color: #2ecc71; }
+  .result.wrong .result-title { color: #e74c3c; }
+  .result.reveal .result-title { color: var(--gold); }
+
+  /* Stats */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-top: 24px;
+  }
+
+  .stat-box {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 12px;
+    text-align: center;
+  }
+
+  .stat-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 2rem;
+    color: var(--gold-light);
+    line-height: 1;
+  }
+
+  .stat-lbl {
+    font-size: 0.72rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--ink-light);
+    color: rgba(201,168,76,0.45);
+    margin-top: 6px;
+  }
+
+  /* Empty state */
+  .empty {
+    text-align: center;
+    padding: 50px 20px;
+    color: rgba(201,168,76,0.3);
+    font-style: italic;
+    font-size: 1.05rem;
+  }
+
+  /* Loading */
+  #loadingScreen {
+    position: fixed;
+    inset: 0;
+    background: #1c1208;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    transition: opacity 0.5s;
+  }
+
+  .loader-cross {
+    font-size: 3rem;
+    color: var(--gold);
+    animation: pulse 1.5s ease-in-out infinite;
+    margin-bottom: 20px;
+  }
+
+  @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+  .loader-text {
+    font-family: 'Playfair Display', serif;
+    color: rgba(201,168,76,0.5);
+    font-size: 1rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  /* Responsive */
+  @media (max-width: 560px) {
+    .card { padding: 20px 18px; }
+    .row { flex-direction: column; gap: 0; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .tab-btn { padding: 10px 16px; font-size: 0.88rem; }
+  }
+
+  /* Bulk hint */
+  .hint {
+    font-size: 0.85rem;
+    color: rgba(201,168,76,0.45);
+    margin-bottom: 10px;
+    font-style: italic;
+  }
+
+  .hint code {
+    font-style: normal;
+    background: rgba(201,168,76,0.1);
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: var(--gold-light);
+    font-family: 'Courier New', monospace;
+    font-size: 0.82rem;
+  }
+</style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+<div id="loadingScreen">
+  <div class="loader-cross">✝</div>
+  <div class="loader-text">Loading Scripture Library…</div>
+</div>
+
+<div class="app">
+  <header>
+    <div class="header-ornament">· · ✦ · ·</div>
+    <h1>Scripture Memorizer</h1>
+    <p class="header-verse">"Thy word have I hid in mine heart" — Psalm 119:11</p>
+    <div class="sync-bar" id="syncBar"></div>
+  </header>
+
+  <!-- Firebase Setup Warning -->
+  <div id="setupBanner">
+    <h3>⚠ Firebase Setup Required</h3>
+    <p>To enable shared cloud sync, you need to configure Firebase. Follow these steps:</p>
+    <ol>
+      <li>Go to <strong>console.firebase.google.com</strong> → Create a project</li>
+      <li>Enable <strong>Firestore Database</strong> (Start in test mode)</li>
+      <li>Go to Project Settings → Add a Web App → Copy the config</li>
+      <li>Replace the <code>firebaseConfig</code> object in this HTML file with your config</li>
+      <li>Redeploy the file</li>
+    </ol>
+    <p style="margin-top:10px;">Until configured, scriptures will be saved locally in this browser only.</p>
+  </div>
+
+  <nav>
+    <button class="tab-btn active" onclick="showTab('input', this)">📖 Input</button>
+    <button class="tab-btn" onclick="showTab('library', this)">📚 Library</button>
+    <button class="tab-btn" onclick="showTab('practice', this)">✏️ Practice</button>
+  </nav>
+
+  <div class="container">
+
+    <!-- ═══════════ INPUT PANEL ═══════════ -->
+    <div id="tab-input" class="panel active">
+      <div class="card">
+        <div class="card-title">Add a Scripture Verse</div>
+
+        <div class="field">
+          <label>Book Name</label>
+          <input type="text" id="bookName" placeholder="e.g. Psalm, John, Romans…">
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label>Chapter</label>
+            <input type="number" id="chapterNum" placeholder="e.g. 91" min="1">
+          </div>
+          <div class="field">
+            <label>Verse</label>
+            <input type="number" id="verseNum" placeholder="e.g. 1" min="1">
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Verse Text</label>
+          <textarea id="verseText" placeholder="Type the full verse exactly as you want to memorize it…" style="min-height:110px;"></textarea>
+        </div>
+
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="addVerse()">+ Add Verse</button>
+          <button class="btn btn-ghost" onclick="clearForm()">Clear</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Bulk Import</div>
+        <p class="hint">One verse per line: <code>Book Chapter:Verse | Verse text here</code></p>
+        <p class="hint" style="margin-bottom:14px;">Example: <code>Psalm 91:1 | He that dwelleth in the secret place of the most High…</code></p>
+        <div class="field">
+          <textarea id="bulkText" style="min-height:150px;" placeholder="Psalm 91:1 | He that dwelleth in the secret place of the most High shall abide under the shadow of the Almighty.&#10;Psalm 91:2 | I will say of the LORD, He is my refuge and my fortress: my God; in him will I trust."></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="bulkAdd()">Import Verses</button>
+      </div>
+    </div>
+
+    <!-- ═══════════ LIBRARY PANEL ═══════════ -->
+    <div id="tab-library" class="panel">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:22px; flex-wrap:wrap; gap:10px;">
+          <div class="card-title" style="margin-bottom:0; padding-bottom:0; border-bottom:none;">
+            Shared Library
+            <span id="totalCount" style="color:rgba(201,168,76,0.5); font-size:0.9rem; font-family:'Crimson Pro',serif; font-weight:normal; margin-left:10px;"></span>
+          </div>
+          <button class="btn btn-danger btn-sm" onclick="clearAll()">🗑 Clear All</button>
+        </div>
+        <div id="libraryContent"><div class="empty">No scriptures yet. Add some in the Input tab.</div></div>
+      </div>
+    </div>
+
+    <!-- ═══════════ PRACTICE PANEL ═══════════ -->
+    <div id="tab-practice" class="panel">
+      <div class="card">
+        <div class="card-title">Practice Mode</div>
+        <div class="row" style="align-items:flex-end;">
+          <div class="field">
+            <label>Filter by Book</label>
+            <select id="practiceBook" onchange="updateChapters()">
+              <option value="">— All Books —</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Filter by Chapter</label>
+            <select id="practiceChapter">
+              <option value="">— All Chapters —</option>
+            </select>
+          </div>
+          <div class="field" style="flex:0;">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" onclick="startPractice()" style="white-space:nowrap;">Start / Next ▶</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="practiceArea" style="display:none;">
+        <div class="prompt-card">
+          <div class="prompt-label">Type this verse from memory</div>
+          <div class="prompt-verse-num" id="promptVerseNum"></div>
+          <div class="prompt-ref" id="promptRef"></div>
+        </div>
+
+        <div class="card">
+          <div class="field">
+            <label>Your Answer <span style="font-size:0.75rem; color:rgba(201,168,76,0.4); text-transform:none; letter-spacing:0;">(Ctrl+Enter to check)</span></label>
+            <textarea id="userAnswer" style="min-height:120px;" placeholder="Type the verse here…" onkeydown="if(event.ctrlKey&&event.key==='Enter')checkAnswer()"></textarea>
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-primary" onclick="checkAnswer()">✔ Check Answer</button>
+            <button class="btn btn-ghost" onclick="revealAnswer()">👁 Reveal</button>
+            <button class="btn btn-ghost" onclick="startPractice()">Skip →</button>
+          </div>
+
+          <!-- Correct -->
+          <div class="result correct" id="resultCorrect">
+            <div class="result-title">✅ Perfect!</div>
+            <div>You typed it exactly right. Well done!</div>
+          </div>
+
+          <!-- Wrong -->
+          <div class="result wrong" id="resultWrong">
+            <div class="result-title">❌ Not quite — Correct verse:</div>
+            <div id="diffOutput" style="line-height:1.9;"></div>
+            <div id="yourAnswerPreview" style="margin-top:12px; font-size:0.88rem; color:rgba(201,168,76,0.45);"></div>
+          </div>
+
+          <!-- Reveal -->
+          <div class="result reveal" id="resultReveal">
+            <div class="result-title">👁 Revealed</div>
+            <div id="revealText" style="line-height:1.9;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-num" id="statTotal">0</div>
+          <div class="stat-lbl">Verses</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" id="statCorrect">0</div>
+          <div class="stat-lbl">Correct</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" id="statAttempts">0</div>
+          <div class="stat-lbl">Attempts</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" id="statPct">—</div>
+          <div class="stat-lbl">Accuracy</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  // ═══════════════════════════════════════════════════════
+  // 🔥 REPLACE THIS WITH YOUR FIREBASE CONFIG
+  // Get it from: Firebase Console → Project Settings → Your Apps → Web App
+  // ═══════════════════════════════════════════════════════
+  const firebaseConfig = {
+    apiKey: "AIzaSyDkOe8EBsRIyEKWBGjvsf0OXA602Cw4-JQ",
+    authDomain: "scripture-memorizer-2cba2.firebaseapp.com",
+    projectId: "scripture-memorizer-2cba2",
+    storageBucket: "scripture-memorizer-2cba2.firebasestorage.app",
+    messagingSenderId: "917966080822",
+    appId: "1:917966080822:web:295815232c0a2c74bf0197",
+    measurementId: "G-5FNN12M7PL"
+  };
+  // ═══════════════════════════════════════════════════════
+
+  const DOC_ID = "scripture-memorizer/shared-library";
+  const LOCAL_KEY = "sm_data";
+
+  let db = null;
+  let useFirebase = false;
+  let scriptures = [];
+  let stats = { correct: 0, attempts: 0 };
+  let currentVerse = null;
+  let unsubscribe = null;
+
+  // Check if Firebase config is filled
+  function isConfigured() {
+    return firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY";
+  }
+
+  // ── Init ──
+  async function init() {
+    if (isConfigured()) {
+      try {
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        useFirebase = true;
+        setSyncMsg("Connecting to cloud…", "syncing");
+
+        // Real-time listener
+        const ref = doc(db, "scripture-memorizer", "shared-library");
+        unsubscribe = onSnapshot(ref, (snap) => {
+          if (snap.exists()) {
+            const data = snap.data();
+            scriptures = data.scriptures || [];
+            stats = data.stats || { correct: 0, attempts: 0 };
+          } else {
+            scriptures = [];
+            stats = { correct: 0, attempts: 0 };
+          }
+          refreshUI();
+          setSyncMsg("● Live — changes sync to all users", "synced");
+        }, (err) => {
+          console.error(err);
+          setSyncMsg("⚠ Cloud sync error — using local fallback", "error");
+          loadLocal();
+        });
+
+      } catch (e) {
+        console.error(e);
+        setSyncMsg("⚠ Firebase error — using local storage", "error");
+        loadLocal();
+      }
+    } else {
+      document.getElementById('setupBanner').style.display = 'block';
+      setSyncMsg("⚠ Firebase not configured — saving locally only", "error");
+      loadLocal();
+    }
+
+    hideLoader();
+  }
+
+  function loadLocal() {
+    try {
+      const d = JSON.parse(localStorage.getItem(LOCAL_KEY) || '{}');
+      scriptures = d.scriptures || [];
+      stats = d.stats || { correct: 0, attempts: 0 };
+    } catch(e) {}
+    refreshUI();
+  }
+
+  async function saveData() {
+    if (useFirebase && db) {
+      try {
+        setSyncMsg("Syncing…", "syncing");
+        const ref = doc(db, "scripture-memorizer", "shared-library");
+        await setDoc(ref, { scriptures, stats });
+        // onSnapshot will update setSyncMsg
+      } catch(e) {
+        setSyncMsg("⚠ Sync failed", "error");
+      }
+    } else {
+      localStorage.setItem(LOCAL_KEY, JSON.stringify({ scriptures, stats }));
+    }
+  }
+
+  function setSyncMsg(msg, type) {
+    const el = document.getElementById('syncBar');
+    el.textContent = msg;
+    el.className = 'sync-bar ' + (type || '');
+  }
+
+  function hideLoader() {
+    const l = document.getElementById('loadingScreen');
+    l.style.opacity = '0';
+    setTimeout(() => l.style.display = 'none', 500);
+  }
+
+  // ── Sort ──
+  function sortScriptures() {
+    scriptures.sort((a,b) => a.book.localeCompare(b.book) || a.chapter - b.chapter || a.verse - b.verse);
+  }
+
+  // ── Add verse ──
+  window.addVerse = async function() {
+    const book = document.getElementById('bookName').value.trim();
+    const ch = parseInt(document.getElementById('chapterNum').value);
+    const v = parseInt(document.getElementById('verseNum').value);
+    const text = document.getElementById('verseText').value.trim();
+
+    if (!book || !ch || !v || !text) { alert('Please fill in all fields.'); return; }
+
+    const idx = scriptures.findIndex(s =>
+      s.book.toLowerCase() === book.toLowerCase() && s.chapter === ch && s.verse === v
+    );
+
+    if (idx >= 0) {
+      if (!confirm(`${book} ${ch}:${v} already exists. Replace it?`)) return;
+      scriptures[idx].text = text;
+    } else {
+      scriptures.push({ book, chapter: ch, verse: v, text });
+    }
+
+    sortScriptures();
+    await saveData();
+    clearForm();
+    alert(`Saved ${book} ${ch}:${v} ✓`);
+  };
+
+  window.clearForm = function() {
+    ['bookName','chapterNum','verseNum','verseText'].forEach(id => document.getElementById(id).value = '');
+  };
+
+  // ── Bulk add ──
+  window.bulkAdd = async function() {
+    const lines = document.getElementById('bulkText').value.trim().split('\n');
+    let added = 0, skipped = 0;
+
+    lines.forEach(line => {
+      line = line.trim();
+      if (!line) return;
+      const pipe = line.indexOf('|');
+      if (pipe < 0) { skipped++; return; }
+      const ref = line.slice(0, pipe).trim();
+      const text = line.slice(pipe + 1).trim();
+      const match = ref.match(/^(.+?)\s+(\d+):(\d+)$/);
+      if (!match) { skipped++; return; }
+      const [, book, ch, v] = match;
+      const chapter = parseInt(ch), verse = parseInt(v);
+      const idx = scriptures.findIndex(s =>
+        s.book.toLowerCase() === book.trim().toLowerCase() && s.chapter === chapter && s.verse === verse
+      );
+      if (idx >= 0) { scriptures[idx].text = text; }
+      else { scriptures.push({ book: book.trim(), chapter, verse, text }); added++; }
+    });
+
+    sortScriptures();
+    await saveData();
+    document.getElementById('bulkText').value = '';
+    alert(`Imported ${added} verse(s).${skipped ? ` ${skipped} skipped (bad format).` : ''}`);
+  };
+
+  // ── Delete ──
+  window.deleteVerse = async function(book, chapter, verse) {
+    if (!confirm(`Delete ${book} ${chapter}:${verse}?`)) return;
+    scriptures = scriptures.filter(s => !(s.book === book && s.chapter === chapter && s.verse === verse));
+    await saveData();
+  };
+
+  window.clearAll = async function() {
+    if (!confirm('Delete ALL scriptures from the shared library? This cannot be undone.')) return;
+    scriptures = [];
+    stats = { correct: 0, attempts: 0 };
+    await saveData();
+  };
+
+  // ── UI Refresh ──
+  function refreshUI() {
+    renderLibrary();
+    populatePracticeBooks();
+    updateStats();
+  }
+
+  function renderLibrary() {
+    const el = document.getElementById('libraryContent');
+    const count = document.getElementById('totalCount');
+    count.textContent = `(${scriptures.length} verse${scriptures.length !== 1 ? 's' : ''})`;
+
+    if (!scriptures.length) {
+      el.innerHTML = '<div class="empty">No scriptures yet. Add some in the Input tab.</div>';
+      return;
+    }
+
+    const groups = {};
+    scriptures.forEach(s => {
+      const key = `${s.book} ${s.chapter}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(s);
+    });
+
+    el.innerHTML = Object.entries(groups).map(([key, verses]) => `
+      <div class="book-group">
+        <div class="book-header">
+          <span>${key}</span>
+          <span class="book-count">${verses.length} verse${verses.length > 1 ? 's' : ''}</span>
+        </div>
+        ${verses.map(s => `
+          <div class="verse-row">
+            <div class="verse-badge">${s.verse}</div>
+            <div class="verse-body">${esc(s.text)}</div>
+            <button class="del-btn" onclick="deleteVerse('${esc(s.book)}',${s.chapter},${s.verse})" title="Delete">✕</button>
+          </div>`).join('')}
+      </div>`).join('');
+  }
+
+  function populatePracticeBooks() {
+    const books = [...new Set(scriptures.map(s => s.book))].sort();
+    const sel = document.getElementById('practiceBook');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— All Books —</option>' + books.map(b => `<option${b===cur?' selected':''}>${b}</option>`).join('');
+    updateChapters();
+  }
+
+  window.updateChapters = function() {
+    const book = document.getElementById('practiceBook').value;
+    const sel = document.getElementById('practiceChapter');
+    if (!book) { sel.innerHTML = '<option value="">— All Chapters —</option>'; return; }
+    const chs = [...new Set(scriptures.filter(s=>s.book===book).map(s=>s.chapter))].sort((a,b)=>a-b);
+    sel.innerHTML = '<option value="">— All Chapters —</option>' + chs.map(c=>`<option value="${c}">Chapter ${c}</option>`).join('');
+  };
+
+  function updateStats() {
+    document.getElementById('statTotal').textContent = scriptures.length;
+    document.getElementById('statCorrect').textContent = stats.correct;
+    document.getElementById('statAttempts').textContent = stats.attempts;
+    document.getElementById('statPct').textContent = stats.attempts > 0
+      ? Math.round(stats.correct / stats.attempts * 100) + '%' : '—';
+  }
+
+  // ── Practice ──
+  window.startPractice = function() {
+    const book = document.getElementById('practiceBook').value;
+    const ch = document.getElementById('practiceChapter').value;
+    let pool = scriptures;
+    if (book) pool = pool.filter(s => s.book === book);
+    if (ch) pool = pool.filter(s => s.chapter === parseInt(ch));
+    if (!pool.length) { alert('No verses in the selected scope. Add some first.'); return; }
+
+    currentVerse = pool[Math.floor(Math.random() * pool.length)];
+    document.getElementById('promptVerseNum').textContent = `Verse ${currentVerse.verse}`;
+    document.getElementById('promptRef').textContent = `${currentVerse.book} ${currentVerse.chapter}:${currentVerse.verse}`;
+    document.getElementById('userAnswer').value = '';
+    hideResults();
+    document.getElementById('practiceArea').style.display = 'block';
+    setTimeout(() => document.getElementById('userAnswer').focus(), 100);
+  };
+
+  function hideResults() {
+    ['resultCorrect','resultWrong','resultReveal'].forEach(id => {
+      document.getElementById(id).className = 'result ' + id.replace('result','').toLowerCase().trim();
+    });
+  }
+
+  window.checkAnswer = async function() {
+    if (!currentVerse) return;
+    const answer = document.getElementById('userAnswer').value.trim();
+    const target = currentVerse.text.trim();
+    const correct = answer === target;
+
+    stats = { correct: stats.correct + (correct ? 1 : 0), attempts: stats.attempts + 1 };
+    await saveData();
+
+    hideResults();
+    if (correct) {
+      document.getElementById('resultCorrect').classList.add('show');
+    } else {
+      document.getElementById('diffOutput').innerHTML = diffHighlight(answer, target);
+      document.getElementById('yourAnswerPreview').innerHTML =
+        `Your answer: <span style="color:var(--parchment);">${esc(answer) || '(nothing typed)'}</span>`;
+      document.getElementById('resultWrong').classList.add('show');
+    }
+  };
+
+  window.revealAnswer = function() {
+    if (!currentVerse) return;
+    hideResults();
+    document.getElementById('revealText').textContent = currentVerse.text;
+    document.getElementById('resultReveal').classList.add('show');
+  };
+
+  function diffHighlight(userText, target) {
+    const tw = target.split(' ');
+    const uw = userText.split(' ');
+    return tw.map((w, i) => {
+      if (uw[i] === undefined) return `<span style="color:#e74c3c;text-decoration:underline;">${esc(w)}</span>`;
+      if (uw[i] === w) return `<span style="color:#2ecc71;">${esc(w)}</span>`;
+      return `<span style="color:#e74c3c;">${esc(w)}</span>`;
+    }).join(' ');
+  }
+
+  function esc(t = '') {
+    return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Tab switching ──
+  window.showTab = function(name, btn) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    btn.classList.add('active');
+  };
+
+  // Start
+  init();
+</script>
+</body>
+</html>
